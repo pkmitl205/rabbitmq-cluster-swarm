@@ -1,0 +1,50 @@
+version: '3.7'
+
+services:
+  haproxy:
+    image: haproxy:2.9.1-alpine
+    ports:
+      - "15672:15672" # HAProxy management port
+      - "5672:5672" # HAProxy AMQP port
+      - "1936:1936" # Report
+    configs:
+      - source: haproxy_config
+        target: /usr/local/etc/haproxy/haproxy.cfg
+    deploy:
+      mode: global
+    networks:
+      - prod
+
+  rmq:
+    image: rabbitmq:3.12-management-alpine
+    hostname: "rabbitmq-{{.Task.Slot}}"
+    configs:
+        - source: rabbitmq_config
+          target: /etc/rabbitmq/rabbitmq.conf
+        - source: enabled_plugins
+          target: /etc/rabbitmq/enabled_plugins
+    environment:
+      - RABBITMQ_ERLANG_COOKIE=P6euPuJ+9iKMq+WqGJEzBA==
+      - RABBITMQ_DEFAULT_USER=rabbitmq
+      - RABBITMQ_DEFAULT_PASS=rabbitmq
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+    networks:
+      - prod
+
+networks:
+  prod:
+    external: true
+
+configs:
+  rabbitmq_config:
+    file: ./config/rabbitmq.conf
+  enabled_plugins:
+    file: ./config/enabled_plugins
+  haproxy_config:
+    file: ./config/haproxy.cfg
